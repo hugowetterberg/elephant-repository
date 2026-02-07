@@ -37,7 +37,7 @@ func NewSSE(ctx context.Context, logger *slog.Logger, store DocStore) (*SSE, err
 	}
 
 	lastID, err := store.GetLastEventID(ctx)
-	if err != nil && !IsDocStoreErrorCode(err, ErrCodeNotFound) {
+	if err != nil && !IsStoreErrorCode(err, ErrCodeNotFound) {
 		return nil, fmt.Errorf(
 			"get last event ID to prepopulate replay buffer: %w", err)
 	}
@@ -174,7 +174,7 @@ func (s *SSE) HTTPHandler() http.Handler {
 // evaluation.
 func (s *SSE) checkLatestEvent(ctx context.Context, eval chan int64) {
 	id, err := s.store.GetLastEventID(ctx)
-	if IsDocStoreErrorCode(err, ErrCodeNotFound) {
+	if IsStoreErrorCode(err, ErrCodeNotFound) {
 		return
 	} else if err != nil {
 		s.logger.ErrorContext(ctx, "failed to get last event id",

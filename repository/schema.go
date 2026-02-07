@@ -107,7 +107,7 @@ func EnsureSchema(
 		Activate:      true,
 		Specification: schema,
 	})
-	if IsDocStoreErrorCode(err, ErrCodeExists) {
+	if IsStoreErrorCode(err, ErrCodeExists) {
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("failed to register schema: %w", err)

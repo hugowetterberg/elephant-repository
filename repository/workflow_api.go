@@ -238,7 +238,7 @@ func (s *WorkflowsService) GetWorkflow(
 	}
 
 	wf, err := s.store.GetDocumentWorkflow(ctx, req.Type)
-	if IsDocStoreErrorCode(err, ErrCodeNotFound) {
+	if IsStoreErrorCode(err, ErrCodeNotFound) {
 		return nil, twirp.NotFoundError("no workflow defined")
 	} else if err != nil {
 		return nil, twirp.InternalErrorf("load workflow: %v", err)

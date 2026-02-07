@@ -364,7 +364,7 @@ func (s *PGDocStore) Delete(
 
 	lock := checkLock(mainInfo.Lock, req.LockToken)
 	if lock == lockCheckDenied {
-		return DocStoreErrorf(ErrCodeDocumentLock, "document locked")
+		return StoreErrorf(ErrCodeDocumentLock, "document locked")
 	}
 
 	var (
@@ -418,7 +418,7 @@ func (s *PGDocStore) Delete(
 
 		select {
 		case <-timeout:
-			return DocStoreErrorf(ErrCodeFailedPrecondition,
+			return StoreErrorf(ErrCodeFailedPrecondition,
 				"timed out while waiting for archiving to complete")
 		case <-time.After(1 * time.Second):
 		case <-archived:
@@ -591,14 +591,14 @@ func (s *PGDocStore) RestoreDocument(
 			UUID: docUUID,
 		})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return DocStoreErrorf(ErrCodeNotFound,
+		return StoreErrorf(ErrCodeNotFound,
 			"delete record doesn't exist")
 	} else if err != nil {
 		return fmt.Errorf("read delete record: %w", err)
 	}
 
 	if record.Purged.Valid {
-		return DocStoreErrorf(ErrCodeBadRequest,
+		return StoreErrorf(ErrCodeBadRequest,
 			"delete record has been purged")
 	}
 
@@ -608,7 +608,7 @@ func (s *PGDocStore) RestoreDocument(
 	}
 
 	if pendingPurge {
-		return DocStoreErrorf(ErrCodeBadRequest,
+		return StoreErrorf(ErrCodeBadRequest,
 			"delete record has been queued for purging")
 	}
 
@@ -619,11 +619,11 @@ func (s *PGDocStore) RestoreDocument(
 
 	if !errors.Is(err, pgx.ErrNoRows) {
 		if !state.Valid {
-			return DocStoreErrorf(ErrCodeExists,
+			return StoreErrorf(ErrCodeExists,
 				"document already exists")
 		}
 
-		return DocStoreErrorf(ErrCodeFailedPrecondition,
+		return StoreErrorf(ErrCodeFailedPrecondition,
 			"document is currently locked for %q", state.String)
 	}
 
@@ -641,7 +641,7 @@ func (s *PGDocStore) RestoreDocument(
 		SystemState: pg.Text(SystemStateRestoring),
 	})
 	if pg.IsConstraintError(err, "document_pkey") {
-		return DocStoreErrorf(ErrCodeFailedPrecondition,
+		return StoreErrorf(ErrCodeFailedPrecondition,
 			"document already exists")
 	} else if err != nil {
 		return fmt.Errorf("insert restore placeholder: %w", err)
@@ -688,7 +688,7 @@ func (s *PGDocStore) PurgeDocument(
 			UUID: docUUID,
 		})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return DocStoreErrorf(ErrCodeNotFound,
+		return StoreErrorf(ErrCodeNotFound,
 			"delete record doesn't exist")
 	} else if err != nil {
 		return fmt.Errorf("read delete record: %w", err)
@@ -825,7 +825,7 @@ func (s *PGDocStore) GetDocument(
 	}
 
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, 0, DocStoreErrorf(ErrCodeNotFound, "not found")
+		return nil, 0, StoreErrorf(ErrCodeNotFound, "not found")
 	} else if err != nil {
 		return nil, 0, fmt.Errorf("failed to fetch document data: %w", err)
 	}
@@ -904,7 +904,7 @@ func (s *PGDocStore) GetLastEvent(
 ) (*Event, error) {
 	res, err := s.reader.GetLastEvent(ctx)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, DocStoreErrorf(ErrCodeNotFound, "not found")
+		return nil, StoreErrorf(ErrCodeNotFound, "not found")
 	} else if err != nil {
 		return nil, fmt.Errorf("database query failed: %w", err)
 	}
@@ -930,7 +930,7 @@ func (s *PGDocStore) GetLastEvent(
 func (s *PGDocStore) GetLastEventID(ctx context.Context) (int64, error) {
 	id, err := s.reader.GetLastEventID(ctx)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return 0, DocStoreErrorf(ErrCodeNotFound, "not found")
+		return 0, StoreErrorf(ErrCodeNotFound, "not found")
 	} else if err != nil {
 		return 0, fmt.Errorf("database query failed: %w", err)
 	}
@@ -1103,7 +1103,7 @@ func (s *PGDocStore) GetVersion(
 		Version: version,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return DocumentUpdate{}, DocStoreErrorf(
+		return DocumentUpdate{}, StoreErrorf(
 			ErrCodeNotFound, "not found")
 	} else if err != nil {
 		return DocumentUpdate{}, fmt.Errorf(
@@ -1260,7 +1260,7 @@ func (s *PGDocStore) GetStatus(
 		ID:   id,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return Status{}, DocStoreErrorf(ErrCodeNotFound, "no status found")
+		return Status{}, StoreErrorf(ErrCodeNotFound, "no status found")
 	} else if err != nil {
 		return Status{}, fmt.Errorf("database error: %w", err)
 	}
@@ -1420,7 +1420,7 @@ func (s *PGDocStore) GetDocumentMeta(
 		Now:  pg.Time(time.Now()),
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, DocStoreErrorf(ErrCodeNotFound, "not found")
+		return nil, StoreErrorf(ErrCodeNotFound, "not found")
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to fetch document info: %w", err)
 	}
@@ -1757,7 +1757,7 @@ func (s *PGDocStore) GetTypeConfiguration(
 ) (*TypeConfiguration, error) {
 	res, err := s.reader.GetTypeConfiguration(ctx, docType)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, DocStoreErrorf(ErrCodeNotFound,
+		return nil, StoreErrorf(ErrCodeNotFound,
 			"%q does not have a stored configuration", docType)
 	} else if err != nil {
 		return nil, fmt.Errorf("read from database: %w", err)
@@ -1916,7 +1916,7 @@ func (s *PGDocStore) Update(
 		}
 
 		if !info.Exists && state.Doc == nil {
-			return nil, DocStoreErrorf(ErrCodeNotFound,
+			return nil, StoreErrorf(ErrCodeNotFound,
 				"non-document update for document that doesn't exist")
 		}
 
@@ -1942,13 +1942,13 @@ func (s *PGDocStore) Update(
 			}
 
 			if wf.Step != state.Request.IfWorkflowState {
-				return nil, DocStoreErrorf(ErrCodeFailedPrecondition,
+				return nil, StoreErrorf(ErrCodeFailedPrecondition,
 					"not in the correct workflow state")
 			}
 		}
 
 		if state.IsMetaDoc && len(state.Request.AttachObjects) > 0 {
-			return nil, DocStoreErrorf(
+			return nil, StoreErrorf(
 				ErrCodeBadRequest,
 				"objects cannot be attached to meta documents")
 		}
@@ -1956,7 +1956,7 @@ func (s *PGDocStore) Update(
 		//nolint:nestif
 		if state.Exists && state.Doc != nil {
 			if isMetaURI(state.Doc.URI) && info.MainDoc == nil {
-				return nil, DocStoreErrorf(ErrCodeBadRequest,
+				return nil, StoreErrorf(ErrCodeBadRequest,
 					"cannot change a normal document into a meta document")
 			}
 
@@ -1964,14 +1964,14 @@ func (s *PGDocStore) Update(
 				expectUUID, expectURI := metaIdentity(*info.MainDoc)
 
 				if state.UUID != expectUUID {
-					return nil, DocStoreErrorf(ErrCodeBadRequest,
+					return nil, StoreErrorf(ErrCodeBadRequest,
 						"expected meta document to have the UUID %s based on the main document UUID %s",
 						expectUUID, *info.MainDoc,
 					)
 				}
 
 				if state.Doc.URI != expectURI {
-					return nil, DocStoreErrorf(ErrCodeBadRequest,
+					return nil, StoreErrorf(ErrCodeBadRequest,
 						"expected meta document to have the URI %s based on the main document UUID %s",
 						expectURI, *info.MainDoc,
 					)
@@ -1979,7 +1979,7 @@ func (s *PGDocStore) Update(
 			}
 
 			if state.Doc.Type != state.Type {
-				return nil, DocStoreErrorf(ErrCodeBadRequest,
+				return nil, StoreErrorf(ErrCodeBadRequest,
 					"cannot change the document type from %q",
 					state.Type)
 			}
@@ -1987,7 +1987,7 @@ func (s *PGDocStore) Update(
 
 		lock := checkLock(info.Lock, state.Request.LockToken)
 		if lock == lockCheckDenied {
-			return nil, DocStoreErrorf(ErrCodeDocumentLock, "document locked")
+			return nil, StoreErrorf(ErrCodeDocumentLock, "document locked")
 		}
 	}
 
@@ -2057,7 +2057,7 @@ func (s *PGDocStore) Update(
 				// We can get collisions on document creation
 				// (as there is no row to lock on create),
 				// report a create conflict.
-				return nil, DocStoreErrorf(ErrCodeFailedPrecondition,
+				return nil, StoreErrorf(ErrCodeFailedPrecondition,
 					"create conflict")
 			} else if err != nil {
 				return nil, err
@@ -2119,12 +2119,12 @@ func (s *PGDocStore) Update(
 				case id == -1 && !ok:
 					continue
 				case id == -1 && ok:
-					return nil, DocStoreErrorf(
+					return nil, StoreErrorf(
 						ErrCodeFailedPrecondition,
 						"status %q exists", name,
 					)
 				case current.ID != id:
-					return nil, DocStoreErrorf(
+					return nil, StoreErrorf(
 						ErrCodeFailedPrecondition,
 						"status %q didn't have the expected ID %d",
 						name, id,
@@ -2176,7 +2176,7 @@ func (s *PGDocStore) Update(
 
 			for _, v := range violations {
 				if v.AccessViolation {
-					return nil, DocStoreErrorf(
+					return nil, StoreErrorf(
 						ErrCodePermissionDenied,
 						"status rule violation %q: %s",
 						v.Name,
@@ -2185,7 +2185,7 @@ func (s *PGDocStore) Update(
 			}
 
 			if len(violations) > 0 {
-				return nil, DocStoreErrorf(ErrCodeBadRequest,
+				return nil, StoreErrorf(ErrCodeBadRequest,
 					"status rule violation: %w", StatusRuleError{
 						Violations: violations,
 					})
@@ -2880,7 +2880,7 @@ func createNewDocumentVersion(
 		Labels:      props.Labels,
 	})
 	if pg.IsConstraintError(err, "document_uri_key") {
-		return DocStoreErrorf(ErrCodeDuplicateURI,
+		return StoreErrorf(ErrCodeDuplicateURI,
 			"duplicate URI: %s", props.URI)
 	} else if err != nil {
 		return fmt.Errorf(
@@ -3020,7 +3020,7 @@ func (s *PGDocStore) buildStatusRuleInput(
 		d, meta, err := s.loadDocument(
 			ctx, q, uuid, status.Version)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return StatusRuleInput{}, DocStoreErrorf(
+			return StatusRuleInput{}, StoreErrorf(
 				ErrCodeNotFound, "cannot set a status for a version that doesn't exist")
 		} else if err != nil {
 			return StatusRuleInput{}, fmt.Errorf(
@@ -3127,7 +3127,7 @@ func (s *PGDocStore) UpdateStatusRule(
 	ctx context.Context, rule StatusRule,
 ) error {
 	if len(rule.AppliesTo) == 0 {
-		return DocStoreErrorf(ErrCodeBadRequest,
+		return StoreErrorf(ErrCodeBadRequest,
 			"applies_to cannot be empty")
 	}
 
@@ -3223,7 +3223,7 @@ func (s *PGDocStore) GetDocumentWorkflow(
 
 	row, err := s.reader.GetDocumentWorkflow(ctx, docType)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return _z, DocStoreErrorf(ErrCodeNotFound, "no workflow defined")
+		return _z, StoreErrorf(ErrCodeNotFound, "no workflow defined")
 	} else if err != nil {
 		return _z, fmt.Errorf("failed to fetch workflow: %w", err)
 	}
@@ -3345,7 +3345,7 @@ func (err StatusRuleError) Error() string {
 func (s *PGDocStore) GetTypeOfDocument(ctx context.Context, uuid uuid.UUID) (string, error) {
 	t, err := s.reader.GetTypeOfDocument(ctx, uuid)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", DocStoreErrorf(ErrCodeNotFound, "no such document")
+		return "", StoreErrorf(ErrCodeNotFound, "no such document")
 	} else if err != nil {
 		return "", fmt.Errorf("query failed: %w", err)
 	}
@@ -3443,10 +3443,10 @@ func (s *PGDocStore) RegisterMetaTypeUse(ctx context.Context, mainType string, m
 
 	switch {
 	case pg.IsConstraintError(err, "meta_type_use_meta_type_fkey"):
-		return DocStoreErrorf(ErrCodeFailedPrecondition,
+		return StoreErrorf(ErrCodeFailedPrecondition,
 			"the meta type hasn't been registered")
 	case pg.IsConstraintError(err, "meta_type_use_pkey"):
-		return DocStoreErrorf(ErrCodeExists,
+		return StoreErrorf(ErrCodeExists,
 			"the meta document use has already been registered")
 	case err != nil:
 		return fmt.Errorf("write to db: %w", err)
@@ -3491,15 +3491,15 @@ func (s *PGDocStore) Lock(ctx context.Context, req LockRequest) (LockResult, err
 		}
 
 		if info.MainDoc != nil {
-			return DocStoreErrorf(ErrCodeBadRequest, "meta documents cannot be locked")
+			return StoreErrorf(ErrCodeBadRequest, "meta documents cannot be locked")
 		}
 
 		if !info.Exists {
-			return DocStoreErrorf(ErrCodeNotFound, "document uuid not found")
+			return StoreErrorf(ErrCodeNotFound, "document uuid not found")
 		}
 
 		if info.Lock.Token != "" {
-			return DocStoreErrorf(ErrCodeDocumentLock, "document locked")
+			return StoreErrorf(ErrCodeDocumentLock, "document locked")
 		}
 
 		err = q.DeleteExpiredDocumentLock(ctx, postgres.DeleteExpiredDocumentLockParams{
@@ -3551,16 +3551,16 @@ func (s *PGDocStore) UpdateLock(ctx context.Context, req UpdateLockRequest) (Loc
 		}
 
 		if !info.Exists {
-			return DocStoreErrorf(ErrCodeNotFound, "not found")
+			return StoreErrorf(ErrCodeNotFound, "not found")
 		}
 
 		if info.Lock.Token == "" {
-			return DocStoreErrorf(ErrCodeNoSuchLock, "not locked")
+			return StoreErrorf(ErrCodeNoSuchLock, "not locked")
 		}
 
 		lock := checkLock(info.Lock, req.Token)
 		if lock == lockCheckDenied {
-			return DocStoreErrorf(ErrCodeDocumentLock, "invalid lock token")
+			return StoreErrorf(ErrCodeDocumentLock, "invalid lock token")
 		}
 
 		err = q.UpdateDocumentLock(ctx, postgres.UpdateDocumentLockParams{
@@ -3594,7 +3594,7 @@ func (s *PGDocStore) Unlock(ctx context.Context, uuid uuid.UUID, token string) e
 		}
 
 		if info.Lock.Token != token {
-			return DocStoreErrorf(ErrCodeDocumentLock, "document locked")
+			return StoreErrorf(ErrCodeDocumentLock, "document locked")
 		}
 
 		deleted, err := s.reader.DeleteDocumentLock(ctx, postgres.DeleteDocumentLockParams{
@@ -3637,7 +3637,7 @@ func (s *PGDocStore) RegisterSchema(
 			Spec:    spec,
 		})
 		if pg.IsConstraintError(err, "document_schema_pkey") {
-			return DocStoreErrorf(ErrCodeExists,
+			return StoreErrorf(ErrCodeExists,
 				"schema version already exists")
 		} else if err != nil {
 			return fmt.Errorf("failed to register schema version: %w", err)
@@ -3668,7 +3668,7 @@ func (s *PGDocStore) ActivateSchema(
 		return s.activateSchema(ctx, tx, name, version)
 	})
 	if pg.IsConstraintError(err, "active_schemas_name_version_fkey") {
-		return DocStoreErrorf(ErrCodeFailedPrecondition, "unknown version")
+		return StoreErrorf(ErrCodeFailedPrecondition, "unknown version")
 	} else if err != nil {
 		return err
 	}
@@ -3809,7 +3809,7 @@ func (s *PGDocStore) GetSchema(
 	}
 
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, DocStoreErrorf(ErrCodeNotFound, "not found")
+		return nil, StoreErrorf(ErrCodeNotFound, "not found")
 	} else if err != nil {
 		return nil, fmt.Errorf(
 			"failed to load schema: %w", err)
@@ -3938,7 +3938,7 @@ func (s *PGDocStore) GetMetricKind(
 ) (*MetricKind, error) {
 	kind, err := s.reader.GetMetricKind(ctx, name)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return nil, DocStoreErrorf(
+		return nil, StoreErrorf(
 			ErrCodeNotFound, "metric kind not found")
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to fetch metric kind: %w", err)
@@ -4014,13 +4014,13 @@ func (s *PGDocStore) RegisterOrReplaceMetric(ctx context.Context, metric Metric)
 
 		switch {
 		case pg.IsConstraintError(err, "metric_kind_fkey"):
-			return DocStoreErrorf(ErrCodeNotFound, "metric kind not found")
+			return StoreErrorf(ErrCodeNotFound, "metric kind not found")
 		case pg.IsConstraintError(err, "metric_label_fkey"):
-			return DocStoreErrorf(ErrCodeNotFound, "metric label not found")
+			return StoreErrorf(ErrCodeNotFound, "metric label not found")
 		case pg.IsConstraintError(err, "metric_label_kind_match"):
-			return DocStoreErrorf(ErrCodeNotFound, "label does not apply to kind")
+			return StoreErrorf(ErrCodeNotFound, "label does not apply to kind")
 		case pg.IsConstraintError(err, "metric_uuid_fkey"):
-			return DocStoreErrorf(ErrCodeNotFound, "document uuid not found")
+			return StoreErrorf(ErrCodeNotFound, "document uuid not found")
 		case err != nil:
 			return fmt.Errorf("failed to save to database: %w", err)
 		}
@@ -4043,13 +4043,13 @@ func (s *PGDocStore) RegisterOrIncrementMetric(ctx context.Context, metric Metri
 
 		switch {
 		case pg.IsConstraintError(err, "metric_kind_fkey"):
-			return DocStoreErrorf(ErrCodeNotFound, "metric kind not found")
+			return StoreErrorf(ErrCodeNotFound, "metric kind not found")
 		case pg.IsConstraintError(err, "metric_label_fkey"):
-			return DocStoreErrorf(ErrCodeNotFound, "metric label not found")
+			return StoreErrorf(ErrCodeNotFound, "metric label not found")
 		case pg.IsConstraintError(err, "metric_label_kind_match"):
-			return DocStoreErrorf(ErrCodeNotFound, "label does not apply to kind")
+			return StoreErrorf(ErrCodeNotFound, "label does not apply to kind")
 		case pg.IsConstraintError(err, "metric_uuid_fkey"):
-			return DocStoreErrorf(ErrCodeNotFound, "document uuid not found")
+			return StoreErrorf(ErrCodeNotFound, "document uuid not found")
 		case err != nil:
 			return fmt.Errorf("failed to save to database: %w", err)
 		}
@@ -4137,7 +4137,7 @@ func (s *PGDocStore) UpdatePreflight(
 	currentVersion := info.CurrentVersion
 
 	if info.SystemState.Valid {
-		return nil, DocStoreErrorf(ErrCodeSystemLock,
+		return nil, StoreErrorf(ErrCodeSystemLock,
 			"the document is in a %q state and cannot be changed",
 			info.SystemState.String)
 	}
@@ -4146,12 +4146,12 @@ func (s *PGDocStore) UpdatePreflight(
 	case 0:
 	case -1:
 		if exists {
-			return nil, DocStoreErrorf(ErrCodeOptimisticLock,
+			return nil, StoreErrorf(ErrCodeOptimisticLock,
 				"document already exists")
 		}
 	default:
 		if currentVersion != ifMatch {
-			return nil, DocStoreErrorf(ErrCodeOptimisticLock,
+			return nil, StoreErrorf(ErrCodeOptimisticLock,
 				"document version is %d, not %d as expected",
 				info.CurrentVersion, ifMatch,
 			)

@@ -439,7 +439,7 @@ func (a *DocumentsService) GetStatus(
 	}
 
 	status, err := a.store.GetStatus(ctx, docUUID, req.Name, req.Id)
-	if IsDocStoreErrorCode(err, ErrCodeNotFound) {
+	if IsStoreErrorCode(err, ErrCodeNotFound) {
 		return nil, twirp.NotFoundError(err.Error())
 	} else if err != nil {
 		return nil, twirp.InternalErrorf("load status information: %v", err)
@@ -750,7 +750,7 @@ func (a *DocumentsService) CompactedEventlog(
 	}
 
 	lastID, err := a.store.GetLastEventID(ctx)
-	if IsDocStoreErrorCode(err, ErrCodeNotFound) {
+	if IsStoreErrorCode(err, ErrCodeNotFound) {
 		return &repository.GetCompactedEventlogResponse{}, nil
 	} else if err != nil {
 		return nil, fmt.Errorf(
@@ -850,7 +850,7 @@ func (a *DocumentsService) Eventlog(
 		evt, err := a.store.GetLastEvent(ctx)
 
 		switch {
-		case IsDocStoreErrorCode(err, ErrCodeNotFound):
+		case IsStoreErrorCode(err, ErrCodeNotFound):
 			after = 0
 		case err != nil:
 			return nil, twirp.InternalErrorf(
@@ -1166,11 +1166,11 @@ func (a *DocumentsService) Delete(
 	})
 
 	switch {
-	case IsDocStoreErrorCode(err, ErrCodeFailedPrecondition):
+	case IsStoreErrorCode(err, ErrCodeFailedPrecondition):
 		return nil, twirp.FailedPrecondition.Error(err.Error())
-	case IsDocStoreErrorCode(err, ErrCodeDocumentLock):
+	case IsStoreErrorCode(err, ErrCodeDocumentLock):
 		return nil, twirp.FailedPrecondition.Error("the document is locked by someone else")
-	case IsDocStoreErrorCode(err, ErrCodeDeleteLock):
+	case IsStoreErrorCode(err, ErrCodeDeleteLock):
 		// Treating a delete call as a success if the delete already is
 		// in progress.
 		return &repository.DeleteDocumentResponse{}, nil
@@ -1306,13 +1306,13 @@ func (a *DocumentsService) Restore(
 		auth.Claims.Subject, acl)
 
 	switch {
-	case IsDocStoreErrorCode(err, ErrCodeExists):
+	case IsStoreErrorCode(err, ErrCodeExists):
 		return nil, twirp.AlreadyExists.Error(err.Error())
-	case IsDocStoreErrorCode(err, ErrCodeFailedPrecondition):
+	case IsStoreErrorCode(err, ErrCodeFailedPrecondition):
 		return nil, twirp.FailedPrecondition.Error(err.Error())
-	case IsDocStoreErrorCode(err, ErrCodeBadRequest):
+	case IsStoreErrorCode(err, ErrCodeBadRequest):
 		return nil, twirp.InvalidArgument.Error(err.Error())
-	case IsDocStoreErrorCode(err, ErrCodeNotFound):
+	case IsStoreErrorCode(err, ErrCodeNotFound):
 		return nil, twirp.NotFoundError(err.Error())
 	case err != nil:
 		return nil, twirp.InternalErrorf(
@@ -1353,9 +1353,9 @@ func (a *DocumentsService) Purge(
 		auth.Claims.Subject)
 
 	switch {
-	case IsDocStoreErrorCode(err, ErrCodeFailedPrecondition):
+	case IsStoreErrorCode(err, ErrCodeFailedPrecondition):
 		return nil, twirp.FailedPrecondition.Error(err.Error())
-	case IsDocStoreErrorCode(err, ErrCodeNotFound):
+	case IsStoreErrorCode(err, ErrCodeNotFound):
 		return nil, twirp.NotFoundError(err.Error())
 	case err != nil:
 		return nil, twirp.InternalErrorf(
@@ -1417,7 +1417,7 @@ func (a *DocumentsService) Get(
 
 	// TODO: This is a bit wasteful to request for all document loads.
 	meta, err := a.store.GetDocumentMeta(ctx, docUUID)
-	if IsDocStoreErrorCode(err, ErrCodeNotFound) {
+	if IsStoreErrorCode(err, ErrCodeNotFound) {
 		return nil, twirp.NotFoundError("the document doesn't exist")
 	} else if err != nil {
 		return nil, twirp.Internal.Errorf(
@@ -1477,7 +1477,7 @@ func (a *DocumentsService) Get(
 
 	if req.MetaDocument != repository.GetMetaDoc_META_ONLY {
 		doc, _, err := a.store.GetDocument(ctx, docUUID, version)
-		if IsDocStoreErrorCode(err, ErrCodeNotFound) {
+		if IsStoreErrorCode(err, ErrCodeNotFound) {
 			return nil, twirp.NotFoundError("no such version")
 		} else if err != nil {
 			return nil, twirp.Internal.Errorf(
@@ -1497,8 +1497,8 @@ func (a *DocumentsService) Get(
 		doc, v, err := a.store.GetDocument(ctx, metaUUID, metaVersion)
 
 		switch {
-		case IsDocStoreErrorCode(err, ErrCodeNotFound) && !requireMetaDoc:
-		case IsDocStoreErrorCode(err, ErrCodeNotFound) && requireMetaDoc:
+		case IsStoreErrorCode(err, ErrCodeNotFound) && !requireMetaDoc:
+		case IsStoreErrorCode(err, ErrCodeNotFound) && requireMetaDoc:
 			return nil, twirp.NotFoundError("no meta document present")
 		case err != nil:
 			return nil, twirp.Internal.Errorf(
@@ -1657,7 +1657,7 @@ func (a *DocumentsService) GetHistory(
 	history, err := a.store.GetVersionHistory(
 		ctx, docUUID, req.Before, 10, req.LoadStatuses,
 	)
-	if IsDocStoreErrorCode(err, ErrCodeNotFound) {
+	if IsStoreErrorCode(err, ErrCodeNotFound) {
 		return nil, twirp.NotFoundError("no such version")
 	}
 
@@ -1801,7 +1801,7 @@ func (a *DocumentsService) GetMeta(
 	}
 
 	meta, err := a.store.GetDocumentMeta(ctx, docUUID)
-	if IsDocStoreErrorCode(err, ErrCodeNotFound) {
+	if IsStoreErrorCode(err, ErrCodeNotFound) {
 		return nil, twirp.NotFoundError("the document doesn't exist")
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to load basic metadata: %w", err)
@@ -1912,21 +1912,21 @@ func (a *DocumentsService) BulkUpdate(
 
 func twirpErrorFromDocumentUpdateError(err error) error {
 	switch {
-	case IsDocStoreErrorCode(err, ErrCodeOptimisticLock):
+	case IsStoreErrorCode(err, ErrCodeOptimisticLock):
 		return twirp.FailedPrecondition.Error(err.Error())
-	case IsDocStoreErrorCode(err, ErrCodeBadRequest):
+	case IsStoreErrorCode(err, ErrCodeBadRequest):
 		return twirp.InvalidArgumentError("document", err.Error())
-	case IsDocStoreErrorCode(err, ErrCodeFailedPrecondition):
+	case IsStoreErrorCode(err, ErrCodeFailedPrecondition):
 		return twirp.FailedPrecondition.Error(err.Error())
-	case IsDocStoreErrorCode(err, ErrCodePermissionDenied):
+	case IsStoreErrorCode(err, ErrCodePermissionDenied):
 		return twirp.PermissionDenied.Error(err.Error())
-	case IsDocStoreErrorCode(err, ErrCodeDeleteLock):
+	case IsStoreErrorCode(err, ErrCodeDeleteLock):
 		return twirp.FailedPrecondition.Error(err.Error())
-	case IsDocStoreErrorCode(err, ErrCodeNotFound):
+	case IsStoreErrorCode(err, ErrCodeNotFound):
 		return twirp.NotFoundError(err.Error())
-	case IsDocStoreErrorCode(err, ErrCodeSystemLock):
+	case IsStoreErrorCode(err, ErrCodeSystemLock):
 		return twirp.FailedPrecondition.Error(err.Error())
-	case IsDocStoreErrorCode(err, ErrCodeDuplicateURI):
+	case IsStoreErrorCode(err, ErrCodeDuplicateURI):
 		return twirp.AlreadyExists.Error(err.Error())
 	case err != nil:
 		return twirp.InternalErrorf(
@@ -2212,7 +2212,7 @@ func (a *DocumentsService) verifyUpdateRequest(
 	} else if len(req.Status) > 0 {
 		// We need to know the document type if we're to set statuses.
 		t, err := a.store.GetTypeOfDocument(ctx, docUUID)
-		if IsDocStoreErrorCode(err, ErrCodeNotFound) {
+		if IsStoreErrorCode(err, ErrCodeNotFound) {
 			return twirp.NotFoundError("cannot set the status of a document that doesn't exist")
 		} else if err != nil {
 			return twirp.InternalErrorf("check type of document: %w", err)
@@ -2474,11 +2474,11 @@ func (a *DocumentsService) Lock(
 	})
 
 	switch {
-	case IsDocStoreErrorCode(err, ErrCodeDeleteLock), IsDocStoreErrorCode(err, ErrCodeNotFound):
+	case IsStoreErrorCode(err, ErrCodeDeleteLock), IsStoreErrorCode(err, ErrCodeNotFound):
 		return nil, twirp.FailedPrecondition.Error("could not find the document")
-	case IsDocStoreErrorCode(err, ErrCodeBadRequest):
+	case IsStoreErrorCode(err, ErrCodeBadRequest):
 		return nil, twirp.InvalidArgument.Error(err.Error())
-	case IsDocStoreErrorCode(err, ErrCodeDocumentLock):
+	case IsStoreErrorCode(err, ErrCodeDocumentLock):
 		return nil, twirp.FailedPrecondition.Error("the document is locked by someone else")
 	case err != nil:
 		return nil, fmt.Errorf("could not obtain lock: %w", err)
@@ -2529,11 +2529,11 @@ func (a *DocumentsService) ExtendLock(
 	})
 
 	switch {
-	case IsDocStoreErrorCode(err, ErrCodeDeleteLock), IsDocStoreErrorCode(err, ErrCodeNotFound):
+	case IsStoreErrorCode(err, ErrCodeDeleteLock), IsStoreErrorCode(err, ErrCodeNotFound):
 		return nil, twirp.FailedPrecondition.Error("could not find the document")
-	case IsDocStoreErrorCode(err, ErrCodeNoSuchLock):
+	case IsStoreErrorCode(err, ErrCodeNoSuchLock):
 		return nil, twirp.FailedPrecondition.Error("the document is not locked by anyone")
-	case IsDocStoreErrorCode(err, ErrCodeDocumentLock):
+	case IsStoreErrorCode(err, ErrCodeDocumentLock):
 		return nil, twirp.FailedPrecondition.Error("the doument is locked by someone else")
 	case err != nil:
 		return nil, fmt.Errorf("could not obtain lock: %w", err)
@@ -2575,9 +2575,9 @@ func (a *DocumentsService) Unlock(
 	err = a.store.Unlock(ctx, docUUID, req.Token)
 
 	switch {
-	case IsDocStoreErrorCode(err, ErrCodeDeleteLock):
+	case IsStoreErrorCode(err, ErrCodeDeleteLock):
 		return &repository.UnlockResponse{}, nil
-	case IsDocStoreErrorCode(err, ErrCodeDocumentLock):
+	case IsStoreErrorCode(err, ErrCodeDocumentLock):
 		return nil, twirp.FailedPrecondition.Errorf("the document is locked by someone else")
 	case err != nil:
 		return nil, fmt.Errorf("could not unlock document: %w", err)

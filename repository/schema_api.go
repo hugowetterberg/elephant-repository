@@ -108,7 +108,7 @@ func (a *SchemasService) GetTypeConfiguration(
 	}
 
 	conf, err := a.store.GetTypeConfiguration(ctx, req.Type)
-	if IsDocStoreErrorCode(err, ErrCodeNotFound) {
+	if IsStoreErrorCode(err, ErrCodeNotFound) {
 		return nil, twirp.NewErrorf(twirp.NotFound,
 			"could not find type configuration: %v", err)
 	}
@@ -202,7 +202,7 @@ func (a *SchemasService) RegisterMetaTypeUse(
 	}
 
 	err = a.store.RegisterMetaTypeUse(ctx, req.MainType, req.MetaType)
-	if errors.As(err, &DocStoreError{}) {
+	if errors.As(err, &StoreError{}) {
 		return nil, twirp.InvalidArgument.Error(err.Error())
 	} else if err != nil {
 		return nil, fmt.Errorf("failed to register meta type: %w", err)
@@ -408,7 +408,7 @@ func (a *SchemasService) Register(
 		Specification: spec,
 		Activate:      req.Activate,
 	})
-	if IsDocStoreErrorCode(err, ErrCodeExists) {
+	if IsStoreErrorCode(err, ErrCodeExists) {
 		return nil, twirp.FailedPrecondition.Error(
 			"schema version already exists")
 	} else if err != nil {
@@ -507,7 +507,7 @@ func (a *SchemasService) SetActive(
 		}
 	} else {
 		err := a.store.ActivateSchema(ctx, req.Name, req.Version)
-		if IsDocStoreErrorCode(err, ErrCodeFailedPrecondition) {
+		if IsStoreErrorCode(err, ErrCodeFailedPrecondition) {
 			return nil, twirp.FailedPrecondition.Error(err.Error())
 		} else if err != nil {
 			return nil, fmt.Errorf(
